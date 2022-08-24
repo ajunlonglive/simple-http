@@ -1,0 +1,4 @@
+http_server-ansi-colors.o: ansi-colors.c /usr/include/stdc-predef.h \
+ ../include/ansi-colors.h
+/usr/include/stdc-predef.h:
+../include/ansi-colors.h:
