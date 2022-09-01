@@ -42,6 +42,17 @@ void interrupt_handler() {
     Py_Finalize();
     exit(0);
 }
+char * int_to_str(int number)
+{
+    int n = log10(number) + 1;
+    int i;
+    char *numberArray = calloc(n, sizeof(char));
+    for (i = n-1; i >= 0; --i, number /= 10)
+    {
+        numberArray[i] = (number % 10) + '0';
+    }
+    return numberArray;
+}
 
 bool str_ends_with(char *string, const char *suffix) {
     int i;
@@ -62,12 +73,20 @@ void prepend(char* s, const char* t) {
     memmove(s + len, s, strlen(s) + 1);
     memcpy(s, t, len);
 }
+char *client_addr;
+char *client_port;
+char *server_addr;
+char *server_port;
+
 int main(int argc, char *argv[]) {
     signal(SIGTSTP, SIG_IGN);
     signal(SIGINT, interrupt_handler);
 
     struct sockaddr_in clientaddr;
+    struct sockaddr_in serveraddr;
+    //struct hostent* server_name;
     socklen_t addrlen;
+    socklen_t serveraddrlen;
     char c;
     // Default Values PATH = ~/ and PORT=8080
     char PORT[6];
@@ -107,15 +126,23 @@ int main(int argc, char *argv[]) {
     mkdir("/var/cache/http-server", 0700);
     PyRun_SimpleString("sys.pycache_prefix=\"/var/cache/http-server\"");
 }
-
     while (true) {
         addrlen = sizeof(clientaddr);
         clients[slot] = accept(listenfd, (struct sockaddr *)&clientaddr, &addrlen);
+        serveraddrlen = sizeof(serveraddr);
+        if (getsockname(clients[slot],(struct sockaddr *)&serveraddr, &serveraddrlen) != 0) {
+            log_error("getsockname(): ", strerror(errno));
+        }
+        //server_name = gethostbyname()
 
         if (clients[slot] < 0) {
             error("accept() error");
         } else {
             if (fork() == 0) {
+        client_addr = inet_ntoa(clientaddr.sin_addr);
+        client_port = int_to_str(ntohs(clientaddr.sin_port));
+        server_addr = inet_ntoa(serveraddr.sin_addr);
+        server_port = int_to_str(ntohs(serveraddr.sin_port));
                 respond(slot, argc, argv);
                 exit(0);
             }
@@ -207,10 +234,12 @@ void respond(int n, int argc, char **argv) {
                 char *url = "";
                 char *url_params_str = "";
                 char *qmark = strchr(reqline[1], '?');
+                char params[100] = "";
                 if (qmark != NULL) {
                     url = strtok(reqline[1], "?");
                     if (reqline[1][qmark-reqline[1]+1] != '\0') {
                         url_params_str = strtok(NULL, "");
+                        strcpy(params, url_params_str);
                     }
                 strcpy(reqline[1], url);
                 } else {
@@ -311,6 +340,16 @@ void respond(int n, int argc, char **argv) {
 		exit(EXIT_FAILURE);
 	}
 
+	// this list is not complete
+	setenv("SERVER_ADDR", server_addr, 1);
+	setenv("REMOTE_ADDR", client_addr, 1);
+	setenv("SERVER_SOFTWARE", "SimpleHTTP", 1);
+	setenv("SERVER_PROTOCOL", "HTTP/1.0", 1);
+    setenv("REQUEST_METHOD", reqline[0], 1);
+	setenv("SERVER_PORT", server_port, 1);
+	setenv("QUERY_STRING", params, 1);
+	//setenv("SCRIPT_NAME", test, 1);
+
 	PHP_EMBED_START_BLOCK(argc, argv)
 
 	zend_file_handle file_handle;
@@ -340,7 +379,7 @@ void respond(int n, int argc, char **argv) {
 	// close pipe output
 	close(pipefd[0]);
                     } else {
-                        // Server as static
+                        // Serve as static
                         write(clients[n], resp_200_header, strlen(resp_200_header));
                         while ((bytes_read = read(fd, data_to_send, BYTES)) > 0) {
                             write(clients[n], data_to_send, bytes_read);
