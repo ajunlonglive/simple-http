@@ -380,7 +380,28 @@ void respond(int n, int argc, char **argv) {
 	close(pipefd[0]);
                     } else {
                         // Serve as static
-                        write(clients[n], resp_200_header, strlen(resp_200_header));
+                        write(clients[n], "HTTP/1.0 200 OK\n", strlen("HTTP/1.0 200 OK\n"));
+                        // should be a switch statement, but wutever
+                        char *content_type;
+                        if (str_ends_with(reqline[1], ".html") || str_ends_with(reqline[1], ".htm")) {
+                            content_type = "Content-Type:text/html\n\n";
+                        } else if (str_ends_with(reqline[1], ".txt")) {
+                        	content_type = "Content-Type:text/plain\n\n";
+                        } else if (str_ends_with(reqline[1], ".js")) {
+                        	content_type = "Content-Type:text/javascript\n\n";
+                        } else if (str_ends_with(reqline[1], ".css")) {
+                        	content_type = "Content-Type:text/css\n\n";
+                        } else if (str_ends_with(reqline[1], ".png")) {
+                        	content_type = "Content-Type:image/png\n\n";
+                        } else if (str_ends_with(reqline[1], ".jpeg") || str_ends_with(reqline[1], ".jpg")) {
+                        	content_type = "Content-Type:image/jpeg\n\n";
+                        } else if (str_ends_with(reqline[1], ".webp")) {
+                        	content_type = "Content-Type:image/webp\n\n";
+                        } else {
+                        	// leave it to the browser ;) poor firefox...
+                        	content_type = "\n\n";
+                        }
+                        write(clients[n], content_type, strlen(content_type));
                         while ((bytes_read = read(fd, data_to_send, BYTES)) > 0) {
                             write(clients[n], data_to_send, bytes_read);
                         }
