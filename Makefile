@@ -12,3 +12,9 @@ default:
 	@gcc src/util.c $(CFLAGS) -o tmp/util.o
 	@gcc src/log.c $(CFLAGS) -o tmp/log.o
 	@gcc tmp/*.o $(LDFLAGS)
+
+install:
+	cp bin/server /usr/local/bin/server
+
+uninstall:
+	rm /usr/local/bin/server

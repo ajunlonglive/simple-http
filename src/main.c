@@ -1,5 +1,3 @@
-
-
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include <frameobject.h>
@@ -193,9 +191,25 @@ void startServer(char *port) {
         exit(1);
     }
 }
+
 #ifndef STDOUT_FILENO
 #define STDOUT_FILENO 1
 #endif
+
+bool try_index(char **path, char *index_file) {
+    char *new_path = (char *)malloc(strlen(*path)+1); strcpy(new_path, *path);
+                    //closedir(folder);
+                    if (!str_ends_with(new_path, "/")) {
+                            strcat(new_path, "/");
+                    }
+                    strcat(new_path, index_file);
+                    if (access(new_path, F_OK) == 0) {
+                        *path = (char *)malloc(strlen(new_path)+1); strcpy(*path, new_path);
+                        return true;
+                    } else {
+                        return false;
+                    }
+}
 
 int cstdout = STDOUT_FILENO;
 void respond(int n, int argc, char **argv) {
@@ -253,13 +267,16 @@ void respond(int n, int argc, char **argv) {
                     url_params_count++; i++;
                 }
 
+                // going to turn this into a list of possible page indexes, and then iterate through them.
                 DIR *folder;
                 if ((folder = opendir(reqline[1])) != NULL) {
-                    closedir(folder);
-                    if (!str_ends_with(reqline[1], "/")) {
-                        strcat(reqline[1], "/");
+                    if (try_index(&reqline[1], "index.html") != true) {
+                        if (try_index(&reqline[1], "index.php") != true) {
+                            if (try_index(&reqline[1], "index.py") != true) {
+                            }
+                        }
+
                     }
-                    strcat(reqline[1], "index.html");
                 }
                 printf("Client accessed file: %s%s%s\n\n", ansi.blue, reqline[1], ansi.reset);
 
@@ -322,7 +339,6 @@ void respond(int n, int argc, char **argv) {
                         }
                         Py_Finalize();
                     } else if (str_ends_with(reqline[1], ".php")) {
-
 	int pipefd[2];
 
 	// pipe to buffer php stdout
